@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OCR Auto-Clicker</title>
+  <link rel="icon" type="image/png" href="../assets/icon.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 14px 16px;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: 14px; color: #4fc3f7; text-align: center;
+      letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px;
+    }
+
+    /* Status */
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      background: #16213e; border: 1px solid #0f3460;
+      border-radius: 7px; padding: 7px 12px; margin-bottom: 10px; font-size: 11.5px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-idle    { background: #888; }
+    .dot-loading { background: #f0a500; animation: pulse .9s infinite; }
+    .dot-running { background: #4caf50; animation: pulse .9s infinite; }
+    .dot-stopped { background: #f44336; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* Top settings row */
+    .row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .row .field { flex: 1; }
+    .field-label { display: block; font-size: 10.5px; color: #888; margin-bottom: 3px; }
+
+    input[type="number"], select {
+      width: 100%; padding: 5px 8px;
+      background: #0d1b2a; border: 1px solid #1a3a5c;
+      border-radius: 4px; color: #e0e0e0; font-size: 12px;
+    }
+    input:focus, select:focus { outline: none; border-color: #4fc3f7; }
+
+    /* Zone cards — compact, side by side where possible */
+    .zones-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .zone-card {
+      background: #16213e; border: 1px solid #0f3460;
+      border-radius: 8px; padding: 10px;
+    }
+    .zone-card.has-zone   { border-color: #1a5276; }
+    .zone-card.click-zone { border-color: #4a235a; }
+    .zone-card.click-zone.has-zone { border-color: #8e44ad; }
+
+    .zone-title {
+      font-size: 11.5px; font-weight: 600; color: #4fc3f7;
+      display: block; margin-bottom: 5px;
+    }
+    .zone-title.purple { color: #bb86fc; }
+    .zone-meta  { font-size: 10px; color: #607d8b; display: block; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .zone-actions { display: flex; gap: 5px; margin-bottom: 6px; }
+
+    .btn {
+      padding: 3px 9px; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 10.5px; font-weight: 500; transition: opacity .15s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: .8; } .btn:disabled { opacity: .35; cursor: not-allowed; }
+    .btn-blue   { background: transparent; border: 1px solid #4fc3f7; color: #4fc3f7; }
+    .btn-purple { background: transparent; border: 1px solid #bb86fc; color: #bb86fc; }
+    .btn-ghost  { background: transparent; border: 1px solid #607d8b; color: #90a4ae; }
+
+    .zone-preview {
+      width: 100%; height: 46px; object-fit: cover;
+      border-radius: 3px; border: 1px solid #1a3a5c;
+      display: none; margin-bottom: 5px; background: #0d1b2a;
+    }
+    .zone-preview.visible { display: block; }
+
+    .ocr-out {
+      background: #0d1b2a; border: 1px solid #1a3a5c;
+      border-radius: 3px; padding: 4px 7px;
+      font-size: 10px; font-family: 'Consolas', monospace; color: #90a4ae;
+      min-height: 26px; max-height: 38px; overflow-y: auto; word-break: break-all;
+    }
+    .ocr-out.matched { color: #4caf50; border-color: #4caf50; }
+
+    .click-info {
+      background: #12082a; border: 1px dashed #8e44ad;
+      border-radius: 3px; padding: 5px 7px; font-size: 10px;
+      color: #bb86fc; text-align: center; line-height: 1.4;
+    }
+
+    /* ── Stat selection card ─────────────────────────────────────────── */
+    .stat-card {
+      background: #16213e; border: 1px solid #0f3460;
+      border-radius: 8px; padding: 11px; margin-bottom: 10px;
+    }
+    .card-title {
+      font-size: 12px; font-weight: 600; color: #e0e0e0;
+      margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+    }
+    .card-title::after {
+      content: ''; flex: 1; height: 1px; background: #0f3460;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+    }
+
+    .stat-row {
+      display: flex;
+    }
+
+    .stat-name {
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px; width: 100%;
+      padding: 5px 8px; border-radius: 6px;
+      font-size: 11px; font-weight: 500; color: #607d8b;
+      background: #0a1628; border: 1px solid #1a3a5c;
+      cursor: pointer; user-select: none;
+      transition: all .15s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .stat-name:hover { border-color: #4fc3f7; color: #aad4f5; }
+    .stat-name input[type="checkbox"] { display: none; }
+
+    .stat-name:has(input:checked) {
+      background: #0d2e4a;
+      border-color: #4fc3f7;
+      color: #4fc3f7;
+      box-shadow: 0 0 6px rgba(79,195,247,.25);
+    }
+
+    .stat-val {
+      display: none; align-items: center; gap: 2px; flex-shrink: 0;
+    }
+    .stat-val.visible { display: flex; }
+    .stat-val .sv-label { font-size: 9.5px; color: #607d8b; }
+    .stat-val input[type="number"] {
+      width: 36px; padding: 1px 3px; font-size: 10px; text-align: center;
+      background: #0d1b2a; border: 1px solid #1a3a5c; border-radius: 3px; color: #e0e0e0;
+    }
+    .stat-val .sv-unit { font-size: 9.5px; color: #4fc3f7; font-weight: 600; }
+
+    /* ── Combined rules ─────────────────────────────────────────────── */
+    .combine-card {
+      background: #16213e; border: 1px solid #7d5a00;
+      border-radius: 8px; padding: 11px; margin-bottom: 10px;
+    }
+
+    .rule-separator {
+      display: none; align-items: center; gap: 8px;
+      font-size: 10px; font-weight: 700; color: #ffb74d;
+      letter-spacing: 1px; margin: 6px 0;
+    }
+    .rule-separator::before, .rule-separator::after {
+      content: ''; flex: 1; height: 1px; background: #7d5a00;
+    }
+
+    /* Collapsed row */
+    .rule-collapsed {
+      display: flex; align-items: center; gap: 8px;
+      background: #0a1628; border: 1px solid #1a3a5c;
+      border-radius: 6px; padding: 7px 10px;
+    }
+    .rule-summary {
+      flex: 1; font-size: 11.5px; font-weight: 600;
+      color: #4fc3f7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rule-summary.empty { color: #455a64; font-weight: 400; font-style: italic; }
+    .rule-btn-edit   { font-size: 10px; padding: 2px 8px; flex-shrink: 0; }
+    .rule-btn-remove { font-size: 10px; padding: 2px 8px; flex-shrink: 0;
+                       border-color: #c62828; color: #ef9a9a; }
+    .rule-btn-remove:hover { background: rgba(198,40,40,.15); }
+
+    /* Expanded panel */
+    .rule-expanded {
+      display: none; background: #0a1628; border: 1px solid #1a3a5c;
+      border-radius: 6px; padding: 10px; margin-top: 4px;
+    }
+    .rule-expanded.open { display: block; }
+
+    .rule-thresh-row {
+      display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    }
+    .rule-thresh-input {
+      width: 64px; padding: 4px 7px;
+      background: #0d1b2a; border: 1px solid #1a3a5c;
+      border-radius: 4px; color: #e0e0e0; font-size: 12px;
+    }
+    .rule-unit { font-size: 13px; font-weight: 700; color: #ffb74d; min-width: 12px; }
+    .rule-btn-done { margin-left: auto; font-size: 10px; padding: 2px 10px; }
+
+    /* ── Counter card ────────────────────────────────────────────────── */
+    .counter-card {
+      background: #0d1f1a; border: 1px solid #1b4d3e;
+      border-radius: 8px; padding: 11px; margin-bottom: 10px;
+    }
+    .counter-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin-top: 8px;
+    }
+    .counter-block { display: flex; flex-direction: column; gap: 3px; }
+    .counter-label { font-size: 10px; color: #607d8b; text-transform: uppercase; letter-spacing: .5px; }
+    .counter-val   { font-size: 13px; font-weight: 700; font-family: 'Consolas', monospace; color: #80cbc4; }
+    .counter-sub   { font-size: 10px; color: #4db6ac; }
+    .counter-sep   { grid-column: 1/-1; border: none; border-top: 1px solid #1b4d3e; margin: 2px 0; }
+    .session-live  { color: #4caf50; animation: pulse .9s infinite; }
+
+    /* ── Probability panel ──────────────────────────────────────────── */
+    .prob-card {
+      background: #0d1b2a; border: 1px solid #1a3a5c;
+      border-radius: 8px; padding: 11px; margin-bottom: 10px;
+    }
+    .prob-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px;
+      margin-top: 8px;
+    }
+    .prob-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .prob-label { font-size: 10.5px; color: #607d8b; }
+    .prob-value { font-size: 11px; font-family: 'Consolas', monospace; color: #90a4ae; font-weight: 600; }
+    .prob-value.good   { color: #4caf50; }
+    .prob-value.ok     { color: #ffb74d; }
+    .prob-value.rare   { color: #f44336; }
+    .prob-total {
+      margin-top: 7px; padding-top: 7px; border-top: 1px solid #1a3a5c;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .prob-total-label { font-size: 11px; color: #aaa; }
+    .prob-total-value { font-size: 14px; font-weight: 700; font-family: 'Consolas', monospace; }
+    .prob-disclaimer { font-size: 9.5px; color: #455a64; margin-top: 5px; }
+
+    /* ── History modal ──────────────────────────────────────────────── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.7); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: #0d1b2a; border: 1px solid #1a3a5c;
+      border-radius: 10px; padding: 16px; width: 620px; max-width: 95vw;
+      max-height: 80vh; display: flex; flex-direction: column; gap: 10px;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-title { font-size: 13px; font-weight: 600; color: #7986cb; }
+    .modal-close {
+      background: none; border: none; color: #607d8b;
+      font-size: 18px; cursor: pointer; line-height: 1; padding: 0 4px;
+    }
+    .modal-close:hover { color: #e0e0e0; }
+
+    .history-empty { font-size: 11px; color: #455a64; text-align: center; padding: 10px 0; }
+
+    .history-group {
+      background: #0a1628; border: 1px solid #1a3a5c;
+      border-radius: 6px; padding: 8px 10px; margin-bottom: 6px;
+    }
+    .history-group:last-child { margin-bottom: 0; }
+    .history-condition {
+      font-size: 11.5px; font-weight: 600; color: #4fc3f7;
+      margin-bottom: 5px; word-break: break-all;
+    }
+    .history-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 6px;
+    }
+    .history-stat { display: flex; flex-direction: column; }
+    .history-stat-label { font-size: 9px; color: #607d8b; text-transform: uppercase; }
+    .history-stat-val   { font-size: 12px; font-weight: 700; font-family: 'Consolas', monospace; color: #80cbc4; }
+    .history-stat-val.rate-good { color: #4caf50; }
+    .history-stat-val.rate-ok   { color: #ffb74d; }
+    .history-stat-val.rate-bad  { color: #f44336; }
+    .history-date { font-size: 9px; color: #455a64; margin-top: 4px; }
+
+    .history-scroll { overflow-y: auto; flex: 1; }
+    .history-scroll::-webkit-scrollbar { width: 4px; }
+    .history-scroll::-webkit-scrollbar-track { background: #0a1628; }
+    .history-scroll::-webkit-scrollbar-thumb { background: #1a3a5c; border-radius: 2px; }
+
+    /* ── Controls ────────────────────────────────────────────────────── */
+    .controls { display: flex; gap: 10px; margin-top: 4px; }
+
+    .btn-start {
+      flex: 1; padding: 9px; background: #1b5e20;
+      border: 1px solid #4caf50; color: #a5d6a7;
+      font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer;
+    }
+    .btn-start:hover { background: #2e7d32; }
+    .btn-start:disabled { opacity: .35; cursor: not-allowed; }
+
+    .btn-stop {
+      flex: 1; padding: 9px; background: #b71c1c;
+      border: 1px solid #f44336; color: #ffcdd2;
+      font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; display: none;
+    }
+    .btn-stop:hover { background: #c62828; }
+  </style>
+</head>
+<body>
+  <h1><img src="../assets/icon.png" style="height:26px;vertical-align:middle;margin-right:8px"> OCR Auto-Clicker</h1>
+
+  <div class="status-bar">
+    <span class="dot dot-loading" id="statusDot"></span>
+    <span id="statusText">Loading OCR engine…</span>
+  </div>
+
+  <!-- Settings -->
+  <div class="row">
+    <div class="field">
+      <label class="field-label">Wait after click (ms) — animation duration</label>
+      <input type="number" id="ocrMs" value="8000" min="500" max="30000">
+    </div>
+  </div>
+
+  <!-- Zone cards -->
+  <div class="zones-row">
+    <div class="zone-card" id="card0">
+      <span class="zone-title">Zone 1 — Stat 1</span>
+      <span class="zone-meta" id="coords0">Not selected</span>
+      <div class="zone-actions">
+        <button class="btn btn-blue" onclick="selectZone(0)">Select</button>
+        <button class="btn btn-ghost" id="previewBtn0" onclick="previewZone(0)" disabled>Preview</button>
+      </div>
+      <img class="zone-preview" id="preview0" alt="">
+      <div class="ocr-out" id="ocr0">OCR output…</div>
+    </div>
+
+    <div class="zone-card" id="card1">
+      <span class="zone-title">Zone 2 — Stat 2</span>
+      <span class="zone-meta" id="coords1">Not selected</span>
+      <div class="zone-actions">
+        <button class="btn btn-blue" onclick="selectZone(1)">Select</button>
+        <button class="btn btn-ghost" id="previewBtn1" onclick="previewZone(1)" disabled>Preview</button>
+      </div>
+      <img class="zone-preview" id="preview1" alt="">
+      <div class="ocr-out" id="ocr1">OCR output…</div>
+    </div>
+
+    <div class="zone-card click-zone" id="card2">
+      <span class="zone-title purple">Zone 3 — Start Btn</span>
+      <span class="zone-meta" id="coords2">Not selected</span>
+      <div class="zone-actions">
+        <button class="btn btn-purple" onclick="selectZone(2)">Select</button>
+        <button class="btn btn-ghost" id="previewBtn2" onclick="previewZone(2)" disabled>Preview</button>
+      </div>
+      <img class="zone-preview" id="preview2" alt="">
+      <div class="click-info" id="clickInfo">
+        Drag around the Start button. Cursor moves to its center before each click.
+      </div>
+    </div>
+  </div>
+
+  <!-- Combined rules -->
+  <div class="combine-card">
+    <div class="card-title" style="color:#ffb74d">Stop Conditions — any rule can trigger the stop</div>
+    <div id="rulesContainer"></div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px;padding:5px" onclick="addRule()">＋ Add Rule</button>
+  </div>
+
+  <!-- Counter card -->
+  <div class="counter-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="card-title" style="color:#80cbc4;margin-bottom:0">Roll Counter</div>
+      <button class="btn btn-ghost" onclick="openHistory()">📋 History</button>
+    </div>
+    <div class="counter-grid">
+      <div class="counter-block">
+        <span class="counter-label">This session</span>
+        <span class="counter-val" id="cSessionRolls">0</span>
+        <span class="counter-sub" id="cSessionStatus">—</span>
+      </div>
+      <div class="counter-block">
+        <span class="counter-label">Session matches</span>
+        <span class="counter-val" id="cSessionMatch">—</span>
+        <span class="counter-sub" id="cSessionMatchSub">&nbsp;</span>
+      </div>
+      <hr class="counter-sep">
+      <div class="counter-block">
+        <span class="counter-label">All-time rolls</span>
+        <span class="counter-val" id="cTotalRolls">0</span>
+        <span class="counter-sub" id="cTotalSessions">0 sessions</span>
+      </div>
+      <div class="counter-block">
+        <span class="counter-label">All-time matches</span>
+        <span class="counter-val" id="cTotalMatches">0</span>
+        <span class="counter-sub" id="cTotalRate">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Probability panel -->
+  <div class="prob-card">
+    <div class="card-title" style="color:#7986cb">Drop Probability</div>
+    <div class="prob-grid">
+      <div class="prob-row">
+        <span class="prob-label">Combined rule:</span>
+        <span class="prob-value" id="pCombineDisp">—</span>
+      </div>
+      <div class="prob-row">
+        <span class="prob-label">Expected rolls:</span>
+        <span class="prob-value" id="expectedRolls">—</span>
+      </div>
+      <div class="prob-row">
+        <span class="prob-label">Success in 100 rolls:</span>
+        <span class="prob-value" id="p100">—</span>
+      </div>
+      <div class="prob-row">
+        <span class="prob-label">Success in 500 rolls:</span>
+        <span class="prob-value" id="p500">—</span>
+      </div>
+    </div>
+    <div class="prob-total">
+      <span class="prob-total-label">Overall per roll:</span>
+      <span class="prob-total-value" id="pTotal">—</span>
+    </div>
+    <div class="prob-disclaimer">⚠ Based on the table screenshot — verify values match your server's actual rates.</div>
+  </div>
+
+  <!-- History modal -->
+  <div class="modal-backdrop" id="historyModal" onclick="closeHistoryOnBackdrop(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">📋 Session History</span>
+        <button class="modal-close" onclick="closeHistory()">✕</button>
+      </div>
+      <div class="history-scroll" id="historyList">
+        <div class="history-empty">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start / Stop -->
+  <div class="controls">
+    <button class="btn-start" id="startBtn" onclick="startAutomation()" disabled>▶  Start Auto-Click</button>
+    <button class="btn-stop"  id="stopBtn"  onclick="stopAutomation()">■  Stop</button>
+  </div>
+
+  <script src="stats-data.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+{
+  "name": "ocr-auto-clicker",
+  "version": "1.0.0",
+  "description": "Auto-clicker that stops when OCR detects specific text in screen zones",
+  "main": "main.js",
+  "author": "mcvp",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "release": "electron-builder --publish always",
+    "make-icon": "node scripts/make-icon.js"
+  },
+  "build": {
+    "appId": "com.bods.ocr-auto-clicker",
+    "productName": "OCR Auto-Clicker",
+    "icon": "assets/icon.ico",
+    "files": [
+      "main.js",
+      "preload.js",
+      "clicker.ps1",
+      "src/**/*",
+      "overlay/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "clicker.ps1",
+      "node_modules/sql.js/dist/**/*",
+      "node_modules/tesseract.js/**/*",
+      "node_modules/tesseract.js-core/**/*"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "lbrulet",
+      "repo": "bod-auto-clicker"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "sign": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "jimp": "^0.22.12",
+    "screenshot-desktop": "^1.15.0",
+    "sql.js": "^1.12.0",
+    "tesseract.js": "^5.1.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3",
+    "electron": "^28.3.3",
+    "png-to-ico": "^2.1.8"
+  }
+}
