@@ -267,7 +267,9 @@ function zoneCenter(zone) {
 }
 
 function startClicker() {
-  const scriptPath = path.join(__dirname, 'clicker.ps1');
+  const scriptPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'app.asar.unpacked', 'clicker.ps1')
+    : path.join(__dirname, 'clicker.ps1');
   clickerProcess = spawn('powershell.exe', [
     '-ExecutionPolicy', 'Bypass', '-File', scriptPath,
   ], { stdio: ['pipe', 'pipe', 'pipe'] });
