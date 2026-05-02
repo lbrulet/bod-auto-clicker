@@ -144,17 +144,6 @@
       box-shadow: 0 0 6px rgba(79,195,247,.25);
     }
 
-    .stat-val {
-      display: none; align-items: center; gap: 2px; flex-shrink: 0;
-    }
-    .stat-val.visible { display: flex; }
-    .stat-val .sv-label { font-size: 9.5px; color: #607d8b; }
-    .stat-val input[type="number"] {
-      width: 36px; padding: 1px 3px; font-size: 10px; text-align: center;
-      background: #0d1b2a; border: 1px solid #1a3a5c; border-radius: 3px; color: #e0e0e0;
-    }
-    .stat-val .sv-unit { font-size: 9.5px; color: #4fc3f7; font-weight: 600; }
-
     /* ── Combined rules ─────────────────────────────────────────────── */
     .combine-card {
       background: #16213e; border: 1px solid #7d5a00;
@@ -407,10 +396,6 @@
   <div class="prob-card">
     <div class="card-title" style="color:#7986cb">Drop Probability</div>
     <div class="prob-grid">
-      <div class="prob-row">
-        <span class="prob-label">Combined rule:</span>
-        <span class="prob-value" id="pCombineDisp">—</span>
-      </div>
       <div class="prob-row">
         <span class="prob-label">Expected rolls:</span>
         <span class="prob-value" id="expectedRolls">—</span>

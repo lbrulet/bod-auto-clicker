@@ -58,11 +58,6 @@ function pZoneStat(statName, minValue) {
   return data.rate * pVal;
 }
 
-// P(zone matches any rule in the list)
-function pZoneMatchesAny(rules) {
-  return Math.min(1, rules.reduce((s, r) => s + pZoneStat(r.stat, r.minValue), 0));
-}
-
 // P(sum of selected stats across both zones >= threshold)
 function pCombineMulti(statNames, threshold) {
   function zoneDist() {
@@ -90,16 +85,3 @@ function pCombineMulti(statNames, threshold) {
   return p;
 }
 
-function computeStopProb(rules, matchMode, combineRules) {
-  let pZones = 0;
-  if (rules && rules.length) {
-    const pZ = pZoneMatchesAny(rules);
-    pZones = matchMode === 'all' ? pZ * pZ : 1 - (1 - pZ) ** 2;
-  }
-  let pComb = 0;
-  if (combineRules && combineRules.length) {
-    pComb = combineRules.reduce((acc, r) =>
-      1 - (1 - acc) * (1 - pCombineMulti(r.stats, r.threshold)), 0);
-  }
-  return pZones + pComb - pZones * pComb;
-}

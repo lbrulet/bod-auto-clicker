@@ -216,12 +216,9 @@ function updateProbability() {
   const rules = getCombineRules();
 
   // P(any rule met) = 1 - product(1 - P(rule_i))
-  let pStop = 0;
-  if (rules.length > 0) {
-    pStop = rules.reduce((acc, r) => 1 - (1 - acc) * (1 - pCombineMulti(r.stats, r.threshold)), 0);
-  }
-
-  setProb('pCombineDisp', pStop, rules.length ? fmt(pStop) : '—');
+  const pStop = rules.length > 0
+    ? rules.reduce((acc, r) => 1 - (1 - acc) * (1 - pCombineMulti(r.stats, r.threshold)), 0)
+    : 0;
 
   const totalEl = document.getElementById('pTotal');
   if (totalEl) {
@@ -333,9 +330,7 @@ async function startAutomation() {
   }
 
   const result = await window.api.startAutomation({
-    statRules:    [],
     waitMs:       Math.max(500, parseInt(document.getElementById('ocrMs').value) || 8000),
-    matchMode:    'all',
     combineRules: rules,
   });
 
@@ -401,6 +396,7 @@ window.api.onAutomationStopped(({ reason }) => {
     const rate = totalRolls > 0 ? ((totalMatches / totalRolls) * 100).toFixed(2) + '%' : '—';
     document.getElementById('cTotalRate').textContent = rate + ' success rate';
   });
+  loadHistory();
 });
 
 // ── Session History modal ─────────────────────────────────────────────────────
@@ -457,8 +453,6 @@ async function loadHistory() {
       </div>`;
   }).join('');
 }
-
-window.api.onAutomationStopped(() => loadHistory());
 
 // ── Live OCR feedback ─────────────────────────────────────────────────────────
 
