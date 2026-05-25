@@ -491,4 +491,5 @@ window.addEventListener('load', () => {
   addRule();
   loadHistory();
   setTimeout(fitWindow, 100);  // fit after first render
+  window.api.rendererReady();  // tell main the renderer is ready to receive events
 });

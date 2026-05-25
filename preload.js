@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  rendererReady:    ()    => ipcRenderer.send('renderer-ready'),
   selectZone:       (i)   => ipcRenderer.invoke('select-zone', i),
   startAutomation:  (cfg) => ipcRenderer.invoke('start-automation', cfg),
   stopAutomation:   ()    => ipcRenderer.invoke('stop-automation'),

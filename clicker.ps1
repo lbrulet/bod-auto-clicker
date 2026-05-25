@@ -31,4 +31,18 @@ while ($true) {
         Start-Sleep -Milliseconds 60
         [MouseHelper]::LeftClick()
     }
+
+    # "screenshot <path>" — capture full screen to file
+    if ($cmd -match "^screenshot (.+)$") {
+        $outPath = $Matches[1]
+        $screen  = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+        $bmp     = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+        $g       = [System.Drawing.Graphics]::FromImage($bmp)
+        $g.CopyFromScreen($screen.Left, $screen.Top, 0, 0, $bmp.Size)
+        $bmp.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        $g.Dispose()
+        $bmp.Dispose()
+        Write-Output "screenshot-done"
+        [Console]::Out.Flush()
+    }
 }

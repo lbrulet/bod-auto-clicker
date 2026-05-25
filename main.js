@@ -4,7 +4,7 @@ const fs   = require('fs');
 const { autoUpdater } = require('electron-updater');
 const { createWorker } = require('tesseract.js');
 const { spawn } = require('child_process');
-const screenshot = require('screenshot-desktop');
+const os = require('os');
 const Jimp = require('jimp');
 const initSqlJs = require('sql.js');
 
@@ -124,11 +124,26 @@ async function initTesseract() {
 app.whenReady().then(async () => {
   createMainWindow();
   await Promise.all([initTesseract(), initDB()]).catch(console.error);
-  if (mainWindow) {
+  tesseractReady = true;
+  trySignalReady();
+  setupAutoUpdater();
+});
+
+// Send ocr-ready only after BOTH the renderer is loaded AND Tesseract is done
+// (avoids race condition in either direction)
+let tesseractReady = false;
+let rendererReady  = false;
+
+function trySignalReady() {
+  if (tesseractReady && rendererReady && mainWindow) {
     mainWindow.webContents.send('ocr-ready');
     pushCounters();
   }
-  setupAutoUpdater();
+}
+
+ipcMain.on('renderer-ready', () => {
+  rendererReady = true;
+  trySignalReady();
 });
 
 function setupAutoUpdater() {
@@ -227,10 +242,52 @@ ipcMain.handle('select-zone', (event, zoneIndex) => {
 
 // ── Screen capture + OCR ─────────────────────────────────────────────────────
 
+function takeScreenshot() {
+  return new Promise((resolve, reject) => {
+    const tmpFile = path.join(os.tmpdir(), `bod-screen-${Date.now()}.png`);
+
+    // Reuse clicker process if running, otherwise spawn a one-shot PowerShell
+    if (clickerProcess && clickerProcess.stdin.writable) {
+      const onData = (data) => {
+        if (data.toString().includes('screenshot-done')) {
+          clickerProcess.stdout.removeListener('data', onData);
+          resolve(tmpFile);
+        }
+      };
+      const timeout = setTimeout(() => {
+        if (clickerProcess) clickerProcess.stdout.removeListener('data', onData);
+        reject(new Error('Screenshot timeout'));
+      }, 8000);
+      clickerProcess.stdout.on('data', onData);
+      clickerProcess.stdin.write(`screenshot ${tmpFile}\n`);
+    } else {
+      // One-shot PowerShell for preview (automation not running)
+      const scriptPath = app.isPackaged
+        ? path.join(process.resourcesPath, 'app.asar.unpacked', 'clicker.ps1')
+        : path.join(__dirname, 'clicker.ps1');
+      const ps = spawn('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      ps.stdin.write(`screenshot ${tmpFile}\n`);
+      ps.stdout.on('data', (data) => {
+        if (data.toString().includes('screenshot-done')) {
+          ps.stdin.write('quit\n');
+          resolve(tmpFile);
+        }
+      });
+      ps.stderr.on('data', (d) => console.error('[screenshot]', d.toString()));
+      ps.on('close', (code) => { if (code !== 0) reject(new Error(`Screenshot ps exited ${code}`)); });
+      setTimeout(() => { try { ps.kill(); } catch (_) {} reject(new Error('Screenshot timeout')); }, 10000);
+    }
+  });
+}
+
 async function captureZone(zone) {
   const { scaleFactor } = screen.getPrimaryDisplay();
-  const imgBuffer = await screenshot({ format: 'png' });
-  const image = await Jimp.read(imgBuffer);
+  const tmpFile = await takeScreenshot();
+
+  const image = await Jimp.read(tmpFile);
+  try { fs.unlinkSync(tmpFile); } catch (_) {}
 
   const px = Math.round(zone.x * scaleFactor);
   const py = Math.round(zone.y * scaleFactor);
@@ -251,8 +308,9 @@ async function ocrZone(zone) {
 
 function extractStatValue(text, statName) {
   const esc = statName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Use negative lookbehind so "Speed" does not match inside "Attack Speed" or "Casting Speed"
-  const re  = new RegExp('(?<![\\w.])' + esc + '[\\s:+%]*([\\d]+\\.?[\\d]*)', 'i');
+  // Block matching when stat name is preceded by "letter + space" (e.g. "Casting Speed" / "Attack Speed")
+  // The old (?<![\w.]) only blocked word chars — space before "Speed" slipped through
+  const re  = new RegExp('(?<![a-zA-Z] )(?<![\\w.])' + esc + '[\\s:+%]*([\\d]+\\.?[\\d]*)', 'i');
   const m   = text.match(re);
   return m ? parseFloat(m[1]) : null;
 }
