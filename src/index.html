@@ -11,8 +11,8 @@
       font-family: 'Segoe UI', Arial, sans-serif;
       background: #1a1a2e;
       color: #e0e0e0;
-      padding: 14px 16px;
-      overflow: hidden;
+      padding: 14px 16px 60px;
+      overflow-y: auto;
     }
 
     h1 {
@@ -282,7 +282,14 @@
     .history-scroll::-webkit-scrollbar-thumb { background: #1a3a5c; border-radius: 2px; }
 
     /* ── Controls ────────────────────────────────────────────────────── */
-    .controls { display: flex; gap: 10px; margin-top: 4px; }
+    .controls {
+      display: flex; gap: 10px;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 8px 16px 10px;
+      background: #1a1a2e;
+      border-top: 1px solid #0f3460;
+      z-index: 50;
+    }
 
     .btn-start {
       flex: 1; padding: 9px; background: #1b5e20;
@@ -429,7 +436,7 @@
     </div>
   </div>
 
-  <!-- Start / Stop -->
+  <!-- Start / Stop — fixed at bottom -->
   <div class="controls">
     <button class="btn-start" id="startBtn" onclick="startAutomation()" disabled>▶  Start Auto-Click</button>
     <button class="btn-stop"  id="stopBtn"  onclick="stopAutomation()">■  Stop</button>

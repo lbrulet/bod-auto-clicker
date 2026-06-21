@@ -1,6 +1,6 @@
 {
   "name": "ocr-auto-clicker",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Auto-clicker that stops when OCR detects specific text in screen zones",
   "main": "main.js",
   "author": "mcvp",

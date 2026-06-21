@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.4
+- Start button is now always visible — fixed at the bottom of the window
+- Window scrolls when too many rules are added instead of pushing the button off screen
+
 ## v1.0.3
 - Fix "Speed" matching inside "Casting Speed" and "Attack Speed" — regex now uses letter+space lookbehind
 
